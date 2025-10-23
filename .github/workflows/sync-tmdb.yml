@@ -1,0 +1,43 @@
+name: TMDB Data Sync
+on:
+  schedule:
+    # 每6小时运行一次 (UTC时间)
+    - cron: '0 */6 * * *'
+  workflow_dispatch: # 允许手动触发
+
+jobs:
+  sync-tmdb-data:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+      
+    - name: Setup Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'
+        
+    - name: Install dependencies
+      run: |
+        pip install requests
+        
+    - name: Download TMDB Data
+      env:
+        TMDB_API_KEY: ${{ secrets.TMDB_API_KEY }}
+        TMDB_BEARER_TOKEN: ${{ secrets.TMDB_BEARER_TOKEN }}
+      run: |
+        python sync_tmdb.py
+        
+    - name: Commit and push data
+      run: |
+        git config --local user.email "action@github.com"
+        git config --local user.name "GitHub Action"
+        git add data/*.json || true
+        git add data/last_update.txt || true
+        if git diff --staged --quiet; then
+          echo "No changes to commit"
+        else
+          git commit -m "Update TMDB data - $(date -u '+%Y-%m-%d %H:%M:%S UTC')"
+          git push
+        fi
